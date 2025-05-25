@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小游戏</title>
+</head>
+<body>
+    <h1>游戏页面</h1>
+    <nav>
+        <a href="index.html">首页</a> | 
+        <a href="about.html">关于</a>
+    </nav>
+    <div id="game-container">
+        <h2>数独游戏</h2>
+        <div class="difficulty-selector">
+            <label>难度：</label>
+            <select id="difficulty">
+                <option value="3">3x3 (简单)</option>
+                <option value="6">6x6 (中等)</option>
+                <option value="9" selected>9x9 (困难)</option>
+            </select>
+        </div>
+        <div id="sudoku-board"></div>
+        <button id="preview-btn">预览样式</button>
+        <button id="check-btn">检查答案</button>
+        <button id="reset-btn">重置游戏</button>
+        <p id="message"></p>
+    </div>
+    <style>
+        #sudoku-board {
+            display: grid;
+            grid-template-columns: repeat(9, 50px);
+            grid-template-rows: repeat(9, 50px);
+            gap: 1px;
+            margin: 20px 0;
+        }
+        
+        .difficulty-selector {
+            margin-bottom: 15px;
+        }
+        
+        .difficulty-selector select {
+            padding: 5px;
+            font-size: 16px;
+        }
+        
+        #sudoku-board input {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            font-size: 20px;
+            border: 1px solid #ccc;
+        }
+        
+        #sudoku-board input:nth-child(3n) {
+            border-right: 2px solid #000;
+        }
+        
+        #sudoku-board input:nth-child(9n+1) {
+            border-left: 2px solid #000;
+        }
+        
+        #sudoku-board input:nth-child(n+19):nth-child(-n+27),
+        #sudoku-board input:nth-child(n+46):nth-child(-n+54) {
+            border-bottom: 2px solid #000;
+        }
+        
+        #sudoku-board input:nth-child(n+1):nth-child(-n+9) {
+            border-top: 2px solid #000;
+        }
+        
+        button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #snake-game {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            margin: 20px 0;
+            border: 2px solid #000;
+        }
+        
+        .snake-segment {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: green;
+        }
+        
+        .food {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+        }
+    </style>
+        <h2>贪吃蛇游戏</h2>
+        <div id="snake-game"></div>
+        
+        <h2>消消乐游戏</h2>
+        <div id="match-game"></div>
+        <button id="start-match-btn">开始游戏</button>
+        <button id="reset-match-btn">重置游戏</button>
+        <p id="match-message"></p>
+        
+        <style>
+            #match-game {
+                display: grid;
+                grid-template-columns: repeat(8, 60px);
+                grid-template-rows: repeat(6, 60px);
+                gap: 5px;
+                margin: 20px 0;
+            }
+            
+            .match-card {
+                width: 60px;
+                height: 60px;
+                background-color: #f0f0f0;
+                border: 2px solid #ccc;
+                border-radius: 5px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 24px;
+                cursor: pointer;
+                transition: all 0.3s;
+            }
+            
+            .match-card.selected {
+                background-color: #ffeb3b;
+                transform: scale(1.05);
+            }
+            
+            .match-card.matched {
+                visibility: hidden;
+            }
+        </style>
+        <button id="start-snake-btn">开始游戏</button>
+        <button id="pause-snake-btn">暂停游戏</button>
+        <p id="snake-score">得分: 0</p>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const board = document.getElementById('sudoku-board');
+            const previewBtn = document.getElementById('preview-btn');
+            const checkBtn = document.getElementById('check-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const message = document.getElementById('message');
+            
+            // 创建数独板
+            function createBoard() {
+                board.innerHTML = '';
+                const size = parseInt(document.getElementById('difficulty').value);
+                const totalCells = size * size;
+                
+                // 更新棋盘样式
+                board.style.gridTemplateColumns = `repeat(${size}, 50px)`;
+                board.style.gridTemplateRows = `repeat(${size}, 50px)`;
+                
+                for (let i = 0; i < totalCells; i++) {
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.maxLength = 1;
+                    input.dataset.index = i;
+                    board.appendChild(input);
+                }
+            }
+            
+            // 验证答案
+            function checkSolution() {
+                const inputs = board.querySelectorAll('input');
+                let isValid = true;
+                const size = parseInt(document.getElementById('difficulty').value);
+                
+                // 验证每行是否有重复数字
+                for (let i = 0; i < size; i++) {
+                    const row = new Set();
+                    for (let j = 0; j < size; j++) {
+                        const val = inputs[i * size + j].value;
+                        if (val && row.has(val)) {
+                            isValid = false;
+                            break;
+                        }
+                        row.add(val);
+                    }
+                    if (!isValid) break;
+                }
+                
+                message.textContent = isValid ? '答案正确！' : '答案有误，请检查！';
+                message.style.color = isValid ? 'green' : 'red';
+            }
+            
+            // 预览样式
+            function previewBoard() {
+                const size = parseInt(document.getElementById('difficulty').value);
+                board.style.gridTemplateColumns = `repeat(${size}, 50px)`;
+                board.style.gridTemplateRows = `repeat(${size}, 50px)`;
+                message.textContent = `预览: ${size}x${size} 数独板`;
+                message.style.color = 'blue';
+            }
+            
+            // 事件监听
+            previewBtn.addEventListener('click', previewBoard);
+            checkBtn.addEventListener('click', checkSolution);
+            resetBtn.addEventListener('click', function() {
+                createBoard();
+                message.textContent = '';
+            });
+            
+            // 难度切换事件
+            document.getElementById('difficulty').addEventListener('change', function() {
+                createBoard();
+                message.textContent = '';
+            });
+            
+            // 初始化
+            createBoard();
+            
+            // 消消乐游戏逻辑
+            const matchGame = document.getElementById('match-game');
+            const startMatchBtn = document.getElementById('start-match-btn');
+            const resetMatchBtn = document.getElementById('reset-match-btn');
+            const matchMessage = document.getElementById('match-message');
+            
+            let selectedCards = [];
+            let matchedPairs = 0;
+            const totalPairs = 24;
+            
+            // 生成卡片
+            function generateCards() {
+                matchGame.innerHTML = '';
+                matchedPairs = 0;
+                matchMessage.textContent = '';
+                
+                // 创建卡片对
+                const symbols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+                let cards = [];
+                
+                symbols.forEach(symbol => {
+                    cards.push(symbol, symbol);
+                });
+                
+                // 随机排序
+                cards.sort(() => Math.random() - 0.5);
+                
+                // 创建卡片元素
+                cards.forEach((symbol, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'match-card';
+                    card.dataset.symbol = symbol;
+                    card.dataset.index = index;
+                    card.textContent = '';
+                    
+                    card.addEventListener('click', () => {
+                        if (card.classList.contains('matched') || selectedCards.length >= 2) {
+                            return;
+                        }
+                        
+                        card.textContent = symbol;
+                        card.classList.add('selected');
+                        selectedCards.push(card);
+                        
+                        if (selectedCards.length === 2) {
+                            checkMatch();
+                        }
+                    });
+                    
+                    matchGame.appendChild(card);
+                });
+            }
+            
+            // 检查匹配
+            function checkMatch() {
+                const [card1, card2] = selectedCards;
+                
+                if (card1.dataset.symbol === card2.dataset.symbol) {
+                    card1.classList.add('matched');
+                    card2.classList.add('matched');
+                    matchedPairs++;
+                    
+                    if (matchedPairs === totalPairs) {
+                        matchMessage.textContent = '恭喜你赢了！';
+                        matchMessage.style.color = 'green';
+                    }
+                } else {
+                    setTimeout(() => {
+                        card1.textContent = '';
+                        card2.textContent = '';
+                        card1.classList.remove('selected');
+                        card2.classList.remove('selected');
+                    }, 1000);
+                }
+                
+                selectedCards = [];
+            }
+            
+            // 事件监听
+            startMatchBtn.addEventListener('click', generateCards);
+            resetMatchBtn.addEventListener('click', generateCards);
+            
+            // 初始化
+            generateCards();
+            
+            // 贪吃蛇游戏逻辑
+            const snakeGame = document.getElementById('snake-game');
+            const startSnakeBtn = document.getElementById('start-snake-btn');
+            const pauseSnakeBtn = document.getElementById('pause-snake-btn');
+            const snakeScore = document.getElementById('snake-score');
+            
+            let snake = [{x: 200, y: 200}];
+            let food = {};
+            let direction = 'right';
+            let gameInterval;
+            let score = 0;
+            
+            // 生成食物
+            function generateFood() {
+                food = {
+                    x: Math.floor(Math.random() * 24) * 20,
+                    y: Math.floor(Math.random() * 24) * 20
+                };
+                
+                // 确保食物不会出现在蛇身上
+                snake.forEach(segment => {
+                    if (segment.x === food.x && segment.y === food.y) {
+                        generateFood();
+                    }
+                });
+                
+                const foodElement = document.createElement('div');
+                foodElement.className = 'food';
+                foodElement.style.left = `${food.x}px`;
+                foodElement.style.top = `${food.y}px`;
+                snakeGame.appendChild(foodElement);
+            }
+            
+            // 绘制蛇
+            function drawSnake() {
+                snakeGame.innerHTML = '';
+                
+                // 绘制食物
+                const foodElement = document.createElement('div');
+                foodElement.className = 'food';
+                foodElement.style.left = `${food.x}px`;
+                foodElement.style.top = `${food.y}px`;
+                snakeGame.appendChild(foodElement);
+                
+                // 绘制蛇身
+                snake.forEach(segment => {
+                    const segmentElement = document.createElement('div');
+                    segmentElement.className = 'snake-segment';
+                    segmentElement.style.left = `${segment.x}px`;
+                    segmentElement.style.top = `${segment.y}px`;
+                    snakeGame.appendChild(segmentElement);
+                });
+            }
+            
+            // 移动蛇
+            function moveSnake() {
+                const head = {x: snake[0].x, y: snake[0].y};
+                
+                switch(direction) {
+                    case 'up':
+                        head.y -= 20;
+                        break;
+                    case 'down':
+                        head.y += 20;
+                        break;
+                    case 'left':
+                        head.x -= 20;
+                        break;
+                    case 'right':
+                        head.x += 20;
+                        break;
+                }
+                
+                // 检查碰撞
+                if (
+                    head.x < 0 || head.x >= 500 || 
+                    head.y < 0 || head.y >= 500 ||
+                    snake.some(segment => segment.x === head.x && segment.y === head.y)
+                ) {
+                    gameOver();
+                    return;
+                }
+                
+                snake.unshift(head);
+                
+                // 检查是否吃到食物
+                if (head.x === food.x && head.y === food.y) {
+                    score++;
+                    snakeScore.textContent = `得分: ${score}`;
+                    generateFood();
+                } else {
+                    snake.pop();
+                }
+                
+                drawSnake();
+            }
+            
+            // 游戏结束
+            function gameOver() {
+                clearInterval(gameInterval);
+                alert(`游戏结束！你的得分是: ${score}`);
+                resetGame();
+            }
+            
+            // 重置游戏
+            function resetGame() {
+                clearInterval(gameInterval);
+                snake = [{x: 200, y: 200}];
+                direction = 'right';
+                score = 0;
+                snakeScore.textContent = '得分: 0';
+                snakeGame.innerHTML = '';
+                generateFood();
+                drawSnake();
+            }
+            
+            // 键盘控制
+            document.addEventListener('keydown', e => {
+                switch(e.key) {
+                    case 'ArrowUp':
+                        if (direction !== 'down') direction = 'up';
+                        break;
+                    case 'ArrowDown':
+                        if (direction !== 'up') direction = 'down';
+                        break;
+                    case 'ArrowLeft':
+                        if (direction !== 'right') direction = 'left';
+                        break;
+                    case 'ArrowRight':
+                        if (direction !== 'left') direction = 'right';
+                        break;
+                }
+            });
+            
+            // 开始游戏
+            startSnakeBtn.addEventListener('click', () => {
+                if (!gameInterval) {
+                    resetGame();
+                    gameInterval = setInterval(moveSnake, 200);
+                }
+            });
+            
+            // 暂停游戏
+            pauseSnakeBtn.addEventListener('click', () => {
+                if (gameInterval) {
+                    clearInterval(gameInterval);
+                    gameInterval = null;
+                } else {
+                    gameInterval = setInterval(moveSnake, 200);
+                }
+            });
+            
+            // 初始化
+            generateFood();
+            drawSnake();
+        });
+    </script>
+</body>
+</html>

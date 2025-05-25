@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>消消乐游戏</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        #game-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 80%;
+            max-width: 600px;
+        }
+        
+        #match-board {
+            display: grid;
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(6, 60px);
+            gap: 5px;
+            margin: 20px 0;
+        }
+        
+        .card {
+            width: 60px;
+            height: 60px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .card.revealed {
+            background-color: #f0f0f0;
+            color: black;
+            font-size: 24px;
+        }
+        
+        .card.selected {
+            background-color: #007bff;
+            color: white;
+            transform: scale(0.95);
+        }
+        
+        .card.matched {
+            visibility: hidden;
+        }
+        
+        #controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        
+        #stats {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        #timer, #score {
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>消消乐</h1>
+    <div id="game-container">
+        <div id="stats">
+            <div id="timer">时间: 0:00</div>
+            <div id="score">得分: 0</div>
+        </div>
+        <div id="match-board"></div>
+        <div id="controls">
+            <button id="start-btn">开始游戏</button>
+            <button id="reset-btn">重置游戏</button>
+        </div>
+    </div>
+
+    <script>
+        // 游戏配置
+        const config = {
+            rows: 6,
+            cols: 8,
+            cardTypes: 24,
+            timeLimit: 300 // 5分钟
+        };
+        
+        // 游戏状态
+        let gameState = {
+            board: [],
+            selectedCard: null,
+            matchedPairs: 0,
+            totalPairs: 0,
+            timer: null,
+            seconds: 0,
+            score: 0,
+            isPlaying: false
+        };
+        
+        // DOM元素
+        const boardElement = document.getElementById('match-board');
+        const timerElement = document.getElementById('timer');
+        const scoreElement = document.getElementById('score');
+        const startBtn = document.getElementById('start-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        
+        // 初始化游戏
+        function initGame() {
+            // 创建卡片对
+            const pairs = [];
+            for (let i = 0; i < config.cardTypes; i++) {
+                pairs.push(i, i);
+            }
+            
+            // 随机排序
+            pairs.sort(() => Math.random() - 0.5);
+            
+            // 创建游戏板
+            gameState.board = [];
+            for (let row = 0; row < config.rows; row++) {
+                const rowCards = [];
+                for (let col = 0; col < config.cols; col++) {
+                    const index = row * config.cols + col;
+                    rowCards.push({
+                        value: pairs[index],
+                        matched: false,
+                        element: null
+                    });
+                }
+                gameState.board.push(rowCards);
+            }
+            
+            gameState.totalPairs = config.rows * config.cols / 2;
+            gameState.matchedPairs = 0;
+            gameState.score = 0;
+            gameState.seconds = 0;
+            
+            renderBoard();
+        }
+        
+        // 渲染游戏板
+        function renderBoard() {
+            boardElement.innerHTML = '';
+            boardElement.style.gridTemplateColumns = `repeat(${config.cols}, 60px)`;
+            boardElement.style.gridTemplateRows = `repeat(${config.rows}, 60px)`;
+            
+            for (let row = 0; row < config.rows; row++) {
+                for (let col = 0; col < config.cols; col++) {
+                    const card = gameState.board[row][col];
+                    const cardElement = document.createElement('div');
+                    cardElement.className = 'card';
+                    cardElement.textContent = card.matched ? '' : String.fromCharCode(65 + card.value);
+                    if (!card.matched) {
+                        cardElement.classList.remove('revealed');
+                    }
+                    cardElement.addEventListener('click', () => handleCardClick(row, col));
+                    
+                    if (card.matched) {
+                        cardElement.classList.add('matched');
+                    }
+                    
+                    boardElement.appendChild(cardElement);
+                    card.element = cardElement;
+                }
+            }
+        }
+        
+        // 处理卡片点击
+        function handleCardClick(row, col) {
+            if (!gameState.isPlaying) return;
+            
+            const card = gameState.board[row][col];
+            if (card.matched || card.element === gameState.selectedCard) return;
+            
+            // 如果已经有选中的卡片
+            if (gameState.selectedCard) {
+                const selectedCard = gameState.selectedCard;
+                
+                card.element.classList.add('revealed');
+                
+                // 检查是否匹配
+                if (selectedCard.value === card.value) {
+                    // 匹配成功
+                    card.matched = true;
+                    selectedCard.matched = true;
+                    
+                    card.element.classList.add('matched');
+                    selectedCard.element.classList.add('matched');
+                    
+                    gameState.matchedPairs++;
+                    gameState.score += 10;
+                    scoreElement.textContent = `得分: ${gameState.score}`;
+                    
+                    // 检查游戏是否结束
+                    if (gameState.matchedPairs === gameState.totalPairs) {
+                        endGame(true);
+                    }
+                } else {
+                    // 匹配失败
+                    card.element.classList.add('revealed');
+                    
+                    // 短暂显示后恢复
+                    setTimeout(() => {
+                        card.element.classList.remove('revealed');
+                        selectedCard.element.classList.remove('revealed');
+                        card.element.classList.remove('selected');
+                        selectedCard.element.classList.remove('selected');
+                    }, 1000);
+                }
+                
+                gameState.selectedCard = null;
+            } else {
+                // 选中卡片
+                gameState.selectedCard = card;
+                card.element.classList.add('revealed');
+                card.element.classList.add('selected');
+            }
+        }
+        
+        // 开始游戏
+        function startGame() {
+            if (gameState.isPlaying) return;
+            
+            initGame();
+            gameState.isPlaying = true;
+            
+            // 启动计时器
+            gameState.timer = setInterval(() => {
+                gameState.seconds++;
+                updateTimer();
+                
+                // 检查时间限制
+                if (gameState.seconds >= config.timeLimit) {
+                    endGame(false);
+                }
+            }, 1000);
+            
+            startBtn.textContent = '游戏中...';
+            startBtn.disabled = true;
+        }
+        
+        // 结束游戏
+        function endGame(isWin) {
+            gameState.isPlaying = false;
+            clearInterval(gameState.timer);
+            
+            if (isWin) {
+                alert(`恭喜你赢了！得分: ${gameState.score}`);
+            } else {
+                alert(`时间到！最终得分: ${gameState.score}`);
+            }
+            
+            startBtn.textContent = '开始游戏';
+            startBtn.disabled = false;
+        }
+        
+        // 重置游戏
+        function resetGame() {
+            if (gameState.timer) {
+                clearInterval(gameState.timer);
+            }
+            
+            gameState = {
+                board: [],
+                selectedCard: null,
+                matchedPairs: 0,
+                totalPairs: 0,
+                timer: null,
+                seconds: 0,
+                score: 0,
+                isPlaying: false
+            };
+            
+            timerElement.textContent = '时间: 0:00';
+            scoreElement.textContent = '得分: 0';
+            startBtn.textContent = '开始游戏';
+            startBtn.disabled = false;
+            
+            initGame();
+        }
+        
+        // 更新计时器显示
+        function updateTimer() {
+            const minutes = Math.floor(gameState.seconds / 60);
+            const seconds = gameState.seconds % 60;
+            timerElement.textContent = `时间: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // 事件监听
+        startBtn.addEventListener('click', startGame);
+        resetBtn.addEventListener('click', resetGame);
+        
+        // 初始化
+        initGame();
+    </script>
+    
+    <div id="game-cards">
+        <h2>其他游戏</h2>
+        <div class="card-container">
+            <div class="game-card" onclick="location.href='tetris.html'">
+                <div class="card-icon">T</div>
+                <div class="card-title">俄罗斯方块</div>
+            </div>
+            <div class="game-card" onclick="location.href='2048.html'">
+                <div class="card-icon">2048</div>
+                <div class="card-title">2048</div>
+            </div>
+            <div class="game-card" onclick="location.href='sudoku.html'">
+                <div class="card-icon">S</div>
+                <div class="card-title">数独</div>
+            </div>
+            <div class="game-card" onclick="location.href='snake.html'">
+                <div class="card-icon">🐍</div>
+                <div class="card-title">贪吃蛇</div>
+            </div>
+            <div class="game-card" onclick="location.href='minesweeper.html'">
+                <div class="card-icon">💣</div>
+                <div class="card-title">扫雷</div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        #game-cards {
+            margin-top: 30px;
+            text-align: center;
+        }
+        
+        .card-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .game-card {
+            width: 100px;
+            height: 120px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .card-icon {
+            font-size: 36px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        
+        .card-title {
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
+</body>
+</html>

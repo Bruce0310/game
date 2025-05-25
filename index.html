@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小游戏网站</title>
+    <script>
+        // 游戏页面列表
+        const games = ['sudoku.html', 'snake.html', 'match.html', 'tetris.html', 'minesweeper.html', '2048.html'];
+        
+        // 获取上次跳转的游戏
+        const lastGame = localStorage.getItem('lastGame');
+        
+        // 页面加载时随机跳转
+        window.onload = function() {
+            let availableGames = [...games];
+            
+            // 如果存在上次跳转的游戏，则从可选列表中移除
+            if (lastGame) {
+                availableGames = availableGames.filter(game => game !== lastGame);
+            }
+            
+            // 随机选择一个游戏
+            const randomGame = availableGames[Math.floor(Math.random() * availableGames.length)];
+            
+            // 保存当前跳转的游戏
+            localStorage.setItem('lastGame', randomGame);
+            
+            window.location.href = randomGame;
+        };
+    </script>
+</head>
+<body>
+    <h1>欢迎来到小游戏网站！</h1>
+    <p>正在随机选择一个游戏...</p>
+</body>
+</html>
